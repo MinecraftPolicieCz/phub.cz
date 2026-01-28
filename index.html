@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini API Tester v2</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; background-color: #f8f9fa; }
+        .container { border: none; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: white; }
+        h2 { color: #1a73e8; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #e0e0e0; border-radius: 6px; box-sizing: border-box; font-size: 16px; transition: border-color 0.3s; }
+        input:focus { border-color: #4285f4; outline: none; }
+        button { background: #4285f4; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px; transition: background 0.3s; }
+        button:hover { background: #357abd; }
+        #status { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; white-space: pre-wrap; word-wrap: break-word; }
+        .error { background: #fdecea; color: #d93025; border: 1px solid #fad2cf; }
+        .success { background: #e6f4ea; color: #1e8e3e; border: 1px solid #ceead6; }
+        .loading { background: #f1f3f4; color: #5f6368; border: 1px solid #e8eaed; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Gemini API Tester</h2>
+    <p>Otestuj funkčnost svého API klíče přímo v prohlížeči.</p>
+    
+    <input type="password" id="apiKey" placeholder="Vlož svůj API klíč (AIza...)">
+    <button id="testBtn">Otestovat spojení</button>
+
+    <div id="status"></div>
+</div>
+
+<script type="module">
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+    document.getElementById('testBtn').addEventListener('click', async () => {
+        const key = document.getElementById('apiKey').value.trim();
+        const statusDiv = document.getElementById('status');
+        
+        if (!key) {
+            showStatus("⚠️ Prosím, nejdříve vlož API klíč.", "error");
+            return;
+        }
+
+        showStatus("🔄 Probíhá testování modelu gemini-1.5-flash-latest...", "loading");
+
+        try {
+            const genAI = new GoogleGenerativeAI(key);
+            
+            // Zkoušíme "latest" verzi, která často opravuje chybu 404 u nových klíčů
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+            
+            const result = await model.generateContent("Ahoj, funguješ? Odpověz krátce.");
+            const response = await result.response;
+            const text = response.text();
+
+            showStatus(`✅ <b>Spojení úspěšné!</b>\n\n<b>Model odpověděl:</b> ${text}`, "success");
+        } catch (error) {
+            console.error(error);
+            let errorMsg = error.message;
+            
+            if (errorMsg.includes("404")) {
+                errorMsg = "Chyba 404: Model nebyl nalezen. Možná tvůj klíč nemá k 'gemini-1.5-flash-latest' přístup, nebo je potřeba v Google AI Studio povolit fakturaci (i pro free tier).";
+            } else if (errorMsg.includes("403")) {
+                errorMsg = "Chyba 403: Přístup zamítnut. Zkontroluj, zda je klíč správně zkopírovaný a zda máš povolené Generative Language API.";
+            }
+
+            showStatus(`❌ <b>Chyba při testu:</b>\n${errorMsg}`, "error");
+        }
+    });
+
+    function showStatus(msg, type) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.style.display = 'block';
+        statusDiv.className = type;
+        statusDiv.innerHTML = msg;
+    }
+</script>
+
+</body>
+</html>
